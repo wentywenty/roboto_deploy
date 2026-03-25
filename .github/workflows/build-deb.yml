@@ -21,6 +21,9 @@ jobs:
       run: |
         chmod +x build_deb.sh
         ./build_deb.sh
+        # Copy produced debs to current directory for upload (script outputs to ../deb_output)
+        mkdir -p deb_output
+        cp -f ../deb_output/*.deb deb_output/
 
     - name: Upload Debian package
       uses: actions/upload-artifact@v4
