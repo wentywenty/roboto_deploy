@@ -3,43 +3,51 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE="$(dirname "$SCRIPT_DIR")"
-BUILD_DIR="${WORKSPACE}/build_deb/roboto-deploy"
-OUTPUT_DIR="${WORKSPACE}/deb_output"
+cd "${SCRIPT_DIR}"
 
 PACKAGE="roboto-deploy"
 VERSION="1.0.0"
 PREFIX="/opt/roboparty"
+DEB_DIR="${PACKAGE}_${VERSION}_all"
 
 echo ">>> Building ${PACKAGE} ${VERSION}"
-mkdir -p "${OUTPUT_DIR}"
-rm -rf "${BUILD_DIR}"
 
-PKG_STAGE="${BUILD_DIR}/${PACKAGE}_${VERSION}_all"
-mkdir -p "${PKG_STAGE}/DEBIAN"
-mkdir -p "${PKG_STAGE}${PREFIX}/bin"
-mkdir -p "${PKG_STAGE}${PREFIX}/share/${PACKAGE}"
+# Clean previous artifacts
+rm -rf "${DEB_DIR}" "${DEB_DIR}.deb"
+mkdir -p "${DEB_DIR}/DEBIAN"
+mkdir -p "${DEB_DIR}${PREFIX}/bin"
+mkdir -p "${DEB_DIR}${PREFIX}/share/${PACKAGE}"
 
 # Startup script
-cp "${SCRIPT_DIR}/start_robot.sh" "${PKG_STAGE}${PREFIX}/bin/"
-chmod 755 "${PKG_STAGE}${PREFIX}/bin/start_robot.sh"
+cp "start_robot.sh" "${DEB_DIR}${PREFIX}/bin/"
+chmod 755 "${DEB_DIR}${PREFIX}/bin/start_robot.sh"
 
 # Fast DDS QoS profile
-cp "${SCRIPT_DIR}/rt_fastdds_profile.xml" "${PKG_STAGE}${PREFIX}/share/${PACKAGE}/"
+cp "rt_fastdds_profile.xml" "${DEB_DIR}${PREFIX}/share/${PACKAGE}/"
 
 # linux-router
-if [ -f "${SCRIPT_DIR}/linux-router/lnxrouter" ]; then
-    cp "${SCRIPT_DIR}/linux-router/lnxrouter" "${PKG_STAGE}${PREFIX}/bin/"
-    chmod 755 "${PKG_STAGE}${PREFIX}/bin/lnxrouter"
+if [ -f "linux-router/lnxrouter" ]; then
+    cp "linux-router/lnxrouter" "${DEB_DIR}${PREFIX}/bin/"
+    chmod 755 "${DEB_DIR}${PREFIX}/bin/lnxrouter"
 else
     echo "WARNING: linux-router/lnxrouter not found (submodule not initialized?)"
 fi
 
-cp "${SCRIPT_DIR}/debian/control"   "${PKG_STAGE}/DEBIAN/"
-cp "${SCRIPT_DIR}/debian/postinst"  "${PKG_STAGE}/DEBIAN/"
-cp "${SCRIPT_DIR}/debian/postrm"    "${PKG_STAGE}/DEBIAN/"
-[ -f "${SCRIPT_DIR}/debian/conffiles" ] && cp "${SCRIPT_DIR}/debian/conffiles" "${PKG_STAGE}/DEBIAN/"
-chmod 755 "${PKG_STAGE}/DEBIAN/postinst" "${PKG_STAGE}/DEBIAN/postrm"
+# Debian control files
+cp "debian/control"   "${DEB_DIR}/DEBIAN/"
+cp "debian/postinst"  "${DEB_DIR}/DEBIAN/"
+cp "debian/postrm"    "${DEB_DIR}/DEBIAN/"
 
-dpkg-deb --root-owner-group --build "${PKG_STAGE}" "${OUTPUT_DIR}/"
-echo ">>> Done: ${OUTPUT_DIR}/${PACKAGE}_${VERSION}_all.deb"
+if [ -f "debian/conffiles" ]; then
+    # Only copy if not empty (to avoid dpkg error)
+    if [ -s "debian/conffiles" ]; then
+        cp "debian/conffiles" "${DEB_DIR}/DEBIAN/"
+    fi
+fi
+
+chmod 755 "${DEB_DIR}/DEBIAN/postinst" "${DEB_DIR}/DEBIAN/postrm"
+
+echo ">>> Executing dpkg-deb build..."
+dpkg-deb --root-owner-group --build "${DEB_DIR}"
+
+echo ">>> Success! Generated ${DEB_DIR}.deb"
