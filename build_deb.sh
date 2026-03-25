@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
 PACKAGE="roboto-deploy"
-VERSION="1.0.0"
+VERSION="1.0.1"
 PREFIX="/opt/roboparty"
 DEB_DIR="${PACKAGE}_${VERSION}_all"
 
@@ -37,6 +37,9 @@ fi
 cp "debian/control"   "${DEB_DIR}/DEBIAN/"
 cp "debian/postinst"  "${DEB_DIR}/DEBIAN/"
 cp "debian/postrm"    "${DEB_DIR}/DEBIAN/"
+
+# Replace VERSION_PLACEHOLDER
+sed -i "s/VERSION_PLACEHOLDER/${VERSION}/" "${DEB_DIR}/DEBIAN/control"
 
 if [ -f "debian/conffiles" ]; then
     # Only copy if not empty (to avoid dpkg error)
