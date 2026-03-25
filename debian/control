@@ -1,0 +1,11 @@
+Package: roboto-deploy
+Version: 1.0.0
+Section: misc
+Priority: optional
+Architecture: all
+Depends: roboto-base (>= 1.0.0), screen
+Maintainer: RoboParty <2321901849@qq.com>
+Description: RoboParty deployment scripts
+ Robot startup scripts and Fast DDS real-time QoS profile.
+ Provides start_robot.sh for launching inference and joystick
+ nodes in screen sessions.
