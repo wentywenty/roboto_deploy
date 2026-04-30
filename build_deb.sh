@@ -16,14 +16,13 @@ echo ">>> Building ${PACKAGE} ${VERSION}"
 rm -rf "${DEB_DIR}" "${DEB_DIR}.deb"
 mkdir -p "${DEB_DIR}/DEBIAN"
 mkdir -p "${DEB_DIR}${PREFIX}/bin"
-mkdir -p "${DEB_DIR}${PREFIX}/share/${PACKAGE}"
 
 # Startup script
 cp "start_robot.sh" "${DEB_DIR}${PREFIX}/bin/"
 chmod 755 "${DEB_DIR}${PREFIX}/bin/start_robot.sh"
 
 # Fast DDS QoS profile
-cp "rt_fastdds_profile.xml" "${DEB_DIR}${PREFIX}/share/${PACKAGE}/"
+cp "rt_fastdds_profile.xml" "${DEB_DIR}${PREFIX}/share/"
 
 # linux-router
 if [ -f "linux-router/lnxrouter" ]; then

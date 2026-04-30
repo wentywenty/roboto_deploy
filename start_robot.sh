@@ -177,7 +177,53 @@ source install/setup.bash
 print_info "停止现有相关screen会话..."
 cleanup_sessions
 
-start_component "inference_session" "ros2 launch inference inference.launch.py" "inference_node" 5
+# 自动从安装路径发现可用配置
+INFERENCE_CFG_DIR="/opt/roboparty/share/inference/config/inference"
+ROBOT_CFG_DIR="/opt/roboparty/share/inference/config/robot"
+
+# 选择推理配置
+INFERENCE_CONFIGS=()
+if [ -d "$INFERENCE_CFG_DIR" ]; then
+    while IFS= read -r f; do INFERENCE_CONFIGS+=("$f"); done < <(ls "$INFERENCE_CFG_DIR"/*.yaml 2>/dev/null | xargs -n1 basename)
+fi
+INFERENCE_CONFIGS+=("自定义路径")
+
+echo ""
+echo "🔍 请选择推理配置:"
+PS3="👉 请输入配置序号: "
+select INFERENCE_CFG in "${INFERENCE_CONFIGS[@]}"; do
+    if [ "$INFERENCE_CFG" == "自定义路径" ]; then
+        read -e -p "📂 请输入 inference 配置文件路径: " INFERENCE_CFG
+        break
+    elif [ -n "$INFERENCE_CFG" ]; then
+        break
+    fi
+done
+
+# 选择 robot 配置
+ROBOT_CONFIGS=()
+if [ -d "$ROBOT_CFG_DIR" ]; then
+    while IFS= read -r f; do ROBOT_CONFIGS+=("$f"); done < <(ls "$ROBOT_CFG_DIR"/*.yaml 2>/dev/null | xargs -n1 basename)
+fi
+ROBOT_CONFIGS+=("自定义路径")
+
+echo ""
+echo "🤖 请选择 robot 配置:"
+PS3="👉 请输入配置序号: "
+select ROBOT_CFG in "${ROBOT_CONFIGS[@]}"; do
+    if [ "$ROBOT_CFG" == "自定义路径" ]; then
+        read -e -p "📂 请输入 robot 配置文件路径: " ROBOT_CFG
+        break
+    elif [ -n "$ROBOT_CFG" ]; then
+        break
+    fi
+done
+
+INFERENCE_LAUNCH_ARGS="inference_config:=$INFERENCE_CFG robot_config:=$ROBOT_CFG"
+print_info "inference 配置: $INFERENCE_CFG"
+print_info "robot 配置: $ROBOT_CFG"
+
+start_component "inference_session" "ros2 launch inference inference.launch.py $INFERENCE_LAUNCH_ARGS" "inference_node" 5
 start_component "joy_session" "ros2 run joy joy_node" "joy_node" 2
 
 # 验证节点的 DDS 配置
