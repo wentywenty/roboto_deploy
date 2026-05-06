@@ -16,6 +16,7 @@ echo ">>> Building ${PACKAGE} ${VERSION}"
 rm -rf "${DEB_DIR}" "${DEB_DIR}.deb"
 mkdir -p "${DEB_DIR}/DEBIAN"
 mkdir -p "${DEB_DIR}${PREFIX}/bin"
+mkdir -p "${DEB_DIR}${PREFIX}/share"
 
 # Startup script
 cp "start_robot.sh" "${DEB_DIR}${PREFIX}/bin/"

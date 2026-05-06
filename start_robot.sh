@@ -30,7 +30,7 @@ start_component() {
 
     print_info "启动 $session_name ..."
     # 在screen会话中启动ROS命令，并确保传递DDS配置环境变量
-    screen -dmS $session_name bash -c "source install/setup.bash; export RMW_IMPLEMENTATION='$RMW_IMPLEMENTATION'; export RMW_FASTRTPS_USE_QOS_FROM_XML='$RMW_FASTRTPS_USE_QOS_FROM_XML'; export FASTRTPS_DEFAULT_PROFILES_FILE='$FASTRTPS_DEFAULT_PROFILES_FILE'; $launch_cmd; exec bash"
+    screen -dmS $session_name bash -c "source $SETUP_BASH; export RMW_IMPLEMENTATION='$RMW_IMPLEMENTATION'; export RMW_FASTRTPS_USE_QOS_FROM_XML='$RMW_FASTRTPS_USE_QOS_FROM_XML'; export FASTRTPS_DEFAULT_PROFILES_FILE='$FASTRTPS_DEFAULT_PROFILES_FILE'; $launch_cmd; exec bash"
     sleep $sleep_time
 
     if ! ros2 node list | grep -q "$node_name"; then
@@ -124,14 +124,49 @@ verify_dds_effectiveness() {
     fi
 }
 
-# 切换到脚本目录
-cd "$(dirname "$0")"
-cd ..
+# 获取脚本所在目录和项目根目录
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# # 选择 CAN 模式
+# echo ""
+# echo "🔧 请选择 CAN 模式:"
+# PS3="👉 请输入模式序号: "
+# select CAN_MODE in "CAN 2.0 (1Mbps)" "CAN FD (1M/5M)"; do
+#     case $CAN_MODE in
+#         "CAN 2.0 (1Mbps)")
+#             print_info "使用 CAN 2.0 模式"
+#             for can_iface in can0 can1 can2 can3; do
+#                 if ip link show "$can_iface" &>/dev/null; then
+#                     sudo ip link set "$can_iface" down
+#                     sudo ip link set "$can_iface" up type can bitrate 1000000
+#                     print_success "$can_iface 已启动 (CAN 2.0, 1Mbps)"
+#                 else
+#                     print_info "$can_iface 不存在，跳过"
+#                 fi
+#             done
+#             break
+#             ;;
+#         "CAN FD (1M/5M)")
+#             print_info "使用 CAN FD 模式"
+#             for can_iface in can0 can1 can2 can3; do
+#                 if ip link show "$can_iface" &>/dev/null; then
+#                     sudo ip link set "$can_iface" down
+#                     sudo ip link set "$can_iface" up type can bitrate 1000000 dbitrate 5000000 fd on
+#                     print_success "$can_iface 已启动 (CAN FD, 1M/5M)"
+#                 else
+#                     print_info "$can_iface 不存在，跳过"
+#                 fi
+#             done
+#             break
+#             ;;
+#     esac
+# done
 
 # 设置 DDS 配置文件
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 export RMW_FASTRTPS_USE_QOS_FROM_XML=1
-export FASTRTPS_DEFAULT_PROFILES_FILE="$(pwd)/assets/rt_fastdds_profile.xml"
+export FASTRTPS_DEFAULT_PROFILES_FILE="$BASE_DIR/share/rt_fastdds_profile.xml"
 print_info "设置 DDS 配置文件: $FASTRTPS_DEFAULT_PROFILES_FILE"
 
 # 检查 DDS 配置文件是否存在
@@ -165,21 +200,29 @@ if ! command -v screen &> /dev/null; then
     exit 1
 fi
 
-# 编译推理包
-print_info "编译推理包..."
-colcon build --symlink-install || {
-    print_error "推理包编译失败"
-    exit 1
-}
-source install/setup.bash
+# 编译推理包（如果在 /opt/roboparty/bin 下则跳过编译）
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ "$SCRIPT_DIR" = "/opt/roboparty/bin" ]; then
+    print_success "脚本位于 /opt/roboparty/bin，跳过编译"
+    source /opt/ros/humble/setup.bash
+    source /opt/roboparty/setup.bash
+    SETUP_BASH="/opt/ros/humble/setup.bash && source /opt/roboparty/setup.bash"
+else
+    print_info "编译推理包..."
+    colcon build --symlink-install || {
+        print_error "推理包编译失败"
+        exit 1
+    }
+    source install/setup.bash
+    SETUP_BASH="install/setup.bash"
+fi
 
 # 停止可能正在运行的screen会话
 print_info "停止现有相关screen会话..."
 cleanup_sessions
 
 # 自动从安装路径发现可用配置
-INFERENCE_CFG_DIR="/opt/roboparty/share/inference/config/inference"
-ROBOT_CFG_DIR="/opt/roboparty/share/inference/config/robot"
+INFERENCE_CFG_DIR="/opt/roboparty/share/roboto-inference/config/inference"
 
 # 选择推理配置
 INFERENCE_CONFIGS=()
@@ -196,11 +239,13 @@ select INFERENCE_CFG in "${INFERENCE_CONFIGS[@]}"; do
         read -e -p "📂 请输入 inference 配置文件路径: " INFERENCE_CFG
         break
     elif [ -n "$INFERENCE_CFG" ]; then
+        INFERENCE_CFG="$INFERENCE_CFG_DIR/$INFERENCE_CFG"
         break
     fi
 done
 
 # 选择 robot 配置
+ROBOT_CFG_DIR="/opt/roboparty/share/roboto-inference/config/robot"
 ROBOT_CONFIGS=()
 if [ -d "$ROBOT_CFG_DIR" ]; then
     while IFS= read -r f; do ROBOT_CONFIGS+=("$f"); done < <(ls "$ROBOT_CFG_DIR"/*.yaml 2>/dev/null | xargs -n1 basename)
@@ -215,6 +260,7 @@ select ROBOT_CFG in "${ROBOT_CONFIGS[@]}"; do
         read -e -p "📂 请输入 robot 配置文件路径: " ROBOT_CFG
         break
     elif [ -n "$ROBOT_CFG" ]; then
+        ROBOT_CFG="$ROBOT_CFG_DIR/$ROBOT_CFG"
         break
     fi
 done
@@ -223,8 +269,9 @@ INFERENCE_LAUNCH_ARGS="inference_config:=$INFERENCE_CFG robot_config:=$ROBOT_CFG
 print_info "inference 配置: $INFERENCE_CFG"
 print_info "robot 配置: $ROBOT_CFG"
 
-start_component "inference_session" "ros2 launch inference inference.launch.py $INFERENCE_LAUNCH_ARGS" "inference_node" 5
-start_component "joy_session" "ros2 run joy joy_node" "joy_node" 2
+start_component "inference_session" "ros2 launch roboto-inference inference.launch.py $INFERENCE_LAUNCH_ARGS" "inference_node" 5
+# joy 已包含在 launch 文件中，无需单独启动
+# start_component "joy_session" "ros2 run joy joy_node" "joy_node" 2
 
 # 验证节点的 DDS 配置
 verify_dds_effectiveness
@@ -234,12 +281,12 @@ print_success "----------------------------------------"
 print_success "所有组件已在后台成功启动！"
 print_success "使用以下命令查看各组件输出："
 print_success "推理模块: screen -r inference_session"
-print_success "手柄控制: screen -r joy_session"
+# print_success "手柄控制: screen -r joy_session"
 print_success "----------------------------------------"
 print_info "若要退出某个screen会话，按Ctrl+A然后按D"
 print_info "使用以下命令停止所有组件："
 print_info "screen -S inference_session -X quit"
-print_info "screen -S joy_session -X quit"
+# print_info "screen -S joy_session -X quit"
 print_success "----------------------------------------"
 print_info "按下X使能/失能电机"
 print_info "按下A复位电机"
