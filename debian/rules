@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+%:
+	dh $@
+
+override_dh_install:
+	dh_install
+	if [ -f "linux-router/lnxrouter" ]; then \
+		mkdir -p debian/roboto-deploy/opt/roboparty/bin; \
+		cp linux-router/lnxrouter debian/roboto-deploy/opt/roboparty/bin/; \
+	fi
+
+override_dh_fixperms:
+	dh_fixperms
+	chmod +x debian/roboto-deploy/opt/roboparty/bin/*.sh || true
+	if [ -f "debian/roboto-deploy/opt/roboparty/bin/lnxrouter" ]; then \
+		chmod +x debian/roboto-deploy/opt/roboparty/bin/lnxrouter; \
+	fi
