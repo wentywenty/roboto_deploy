@@ -1,4 +1,4 @@
-name: Build roboto-deploy Debian Package
+name: Build Roboto Deploy Deb Package
 
 on:
   push:
