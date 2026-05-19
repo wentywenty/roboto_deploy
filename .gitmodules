@@ -1,3 +1,15 @@
 [submodule "linux-router"]
 	path = linux-router
 	url = https://github.com/garywill/linux-router.git
+[submodule "roboto_imu"]
+	path = roboto_imu
+	url = https://github.com/wentywenty/roboto_imu.git
+[submodule "roboto_motors"]
+	path = roboto_motors
+	url = https://github.com/wentywenty/roboto_motors.git
+[submodule "roboto_example"]
+	path = roboto_example
+	url = https://github.com/wentywenty/roboto_example.git
+[submodule "roboto_inference"]
+	path = roboto_inference
+	url = https://github.com/wentywenty/roboto_inference.git
